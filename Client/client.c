@@ -3,13 +3,89 @@
 #include <arpa/inet.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
+#define NB_THREADS 2
+
+char *msg;
+char *msg2;
+int n;
+int sizeMess;
+int dS;
+
+void *sending()
+{
+  while (1)
+  {
+    printf("Entrez un message ('fin' pour quitter) : ");
+    fgets(msg, sizeof(msg), stdin);
+    if (msg[strlen(msg) - 1] == '\n')
+      msg[strlen(msg) - 1] = '\0';
+    // Envoi de la taille du mess
+    int sizeMess = strlen(msg) + 1;
+
+    if (send(dS, &sizeMess, 4, 0) == -1)
+    {
+      printf("Erreur d'envoi\n");
+      exit(1);
+    }
+    else
+    {
+      printf("Taille du message : %d\n", sizeMess);
+    }
+    // Envoi du mess
+    if (send(dS, msg, sizeMess, 0) == -1)
+    {
+      printf("Erreur d'envoi\n");
+      exit(1);
+    }
+    else
+    {
+      printf("Message Envoyé \n");
+    }
+
+    if (strcmp(msg, "fin") == 0)
+    {
+      printf("Fin du programme");
+      pthread_exit(0);
+    }
+  }
+}
+
+void *receiving()
+{
+  while (1)
+  {
+    // Reception taille du mess
+    if (recv(dS, &sizeMess, 4, 0) == -1)
+    {
+      printf("Erreur de reception\n");
+      exit(1);
+    }
+    else
+    {
+      printf("Message 2 recu de taille : %d\n", sizeMess);
+    }
+
+    if (recv(dS, msg, sizeMess, 0) == -1)
+    {
+      printf("Erreur de reception\n");
+      exit(1);
+    }
+    else
+    {
+      printf("Message reçu : %s\n", msg);
+    }
+  }
+  pthread_exit(0);
+}
 
 int main(int argc, char *argv[])
 {
-  int id_client = atoi(argv[3]);
+
   printf("Début programme\n");
-  int dS = socket(PF_INET, SOCK_STREAM, 0);
+  dS = socket(PF_INET, SOCK_STREAM, 0);
   printf("Socket Créé\n");
+  pthread_t thread[NB_THREADS];
 
   struct sockaddr_in aS;
   aS.sin_family = AF_INET;
@@ -26,129 +102,15 @@ int main(int argc, char *argv[])
   {
     printf("Socket Connecté\n");
   }
-  int n = 200;
+  n = 200;
 
-  char *msg = malloc(n * sizeof(char));
-  char *msg2 = malloc(n * sizeof(char));
-  while (1)
-  {
-    if (id_client == 1)
-    {
-      printf("Entrez un message ('fin' pour quitter) : ");
-      fgets(msg, n, stdin);
-      if (msg[strlen(msg) - 1] == '\n')
-        msg[strlen(msg) - 1] = '\0';
-      // Envoi de la taille du mess
-      int sizeMess = strlen(msg) + 1;
+  msg = malloc(n * sizeof(char));
+  msg2 = malloc(n * sizeof(char));
 
-      if (send(dS, &sizeMess, 4, 0) == -1)
-      {
-        printf("Erreur d'envoi\n");
-        break;
-      }
-      else
-      {
-        printf("Taille du message : %d\n", sizeMess);
-      }
-      // Envoi du mess
-      if (send(dS, msg, sizeMess, 0) == -1)
-      {
-        printf("Erreur d'envoi\n");
-        break;
-      }
-      else
-      {
-        printf("Message Envoyé \n");
-      }
-
-      if (strcmp(msg, "fin") == 0)
-      {
-        shutdown(dS, 2);
-        printf("Fin du programme");
-      }
-      // Reception taille du mess
-      if (recv(dS, &sizeMess, sizeof(sizeMess), 0) == -1)
-      {
-        printf("Erreur de reception\n");
-        break;
-      }
-      else
-      {
-        printf("Message 2 recu de taille : %d\n", sizeMess);
-      }
-
-      // Reception du mess
-      if (recv(dS, msg2, sizeMess, 0) == -1)
-      {
-        printf("Erreur de reception\n");
-        break;
-      }
-      else
-      {
-        printf("Message reçu : %s\n", msg2);
-      }
-    }
-
-
-    else if (id_client == 2)
-    {
-      int sizeMess;
-      // Reception taille du mess
-      if (recv(dS, &sizeMess, 4, 0) == -1)
-      {
-        printf("Erreur de reception\n");
-        break;
-      }
-      else
-      {
-        printf("Message 2 recu de taille : %d\n", sizeMess);
-      }
-
-      if (recv(dS, msg, 20, 0) == -1)
-      {
-        printf("Erreur de reception\n");
-        break;
-      }
-      else
-      {
-        printf("Message reçu : %s\n", msg);
-      }
-
-      printf("Entrez un message ('fin' pour quitter) : ");
-      fgets(msg2, n, stdin);
-
-      if (msg2[strlen(msg2) - 1] == '\n')
-        msg2[strlen(msg2) - 1] = '\0';
-
-      // Envoi de la taille du mess
-      int sizeMess2 = strlen(msg2) + 1;
-      if (send(dS, &sizeMess2, 4, 0) == -1)
-      {
-        printf("Erreur d'envoi\n");
-        break;
-      }
-      else
-      {
-        printf("Taille du message : %d\n", sizeMess2);
-      }
-
-      // Envoi du mess
-      if (send(dS, msg2, sizeMess2, 0) == -1)
-      {
-        printf("Erreur d'envoi\n");
-        break;
-      }
-      else
-      {
-        printf("Message Envoyé \n");
-      }
-
-      printf("Message Envoyé \n");
-      if (strcmp(msg2, "fin") == 0)
-      {
-        shutdown(dS, 2);
-        printf("Fin du programme");
-      }
-    }
-  }
+  pthread_create(&thread[0], NULL, sending, (void *)0);
+  pthread_create(&thread[1], NULL, receiving, (void *)1);
+  // fermeture des threads
+  pthread_join(thread[0], NULL);
+  pthread_join(thread[1], NULL);
+  shutdown(dS, 2);
 }
