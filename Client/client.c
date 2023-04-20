@@ -17,7 +17,7 @@ void *sending()
   while (1)
   {
     printf("Entrez un message ('fin' pour quitter) : ");
-    fgets(msg, sizeof(msg), stdin);
+    fgets(msg, n, stdin);
     if (msg[strlen(msg) - 1] == '\n')
       msg[strlen(msg) - 1] = '\0';
     // Envoi de la taille du mess
@@ -74,6 +74,7 @@ void *receiving()
     else
     {
       printf("Message reçu : %s\n", msg);
+
     }
   }
   pthread_exit(0);

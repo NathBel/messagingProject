@@ -4,69 +4,56 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
-#define NB_THREADS 2
+// Nombre de threads crées => nombre clients max
+#define NB_THREADS 10
 
-int dSC;
-int dSC2;
+// Socket du serveur
+int dS;
+// Taille max du message 20
 char msg[20];
 int sizeMess;
-int stop = 0;
+volatile int stop = 0;
+// Tableau de socket pour les clients
+int socketClients[NB_THREADS];
+int indexsocketClients = 0;
 
-void *sendToClient2()
+void *sendToClients(void *t)
 {
+    int indexSenderAdress = (long)t;
     while (stop == 0)
     {
         // Reception taille du mess
-        recv(dSC, &sizeMess, sizeof(sizeMess), 0);
+        recv(socketClients[indexSenderAdress], &sizeMess, sizeof(sizeMess), 0); // att la taille du message de son client
         printf("Message 2 recu de taille : %d\n", sizeMess);
         // Reception du mess
-        recv(dSC, msg, sizeMess, 0);
+        recv(socketClients[indexSenderAdress], msg, sizeMess, 0); // att le message de son client
 
         if (strcmp(msg, "fin") != 0)
         {
             printf("Message reçu : %s\n", msg);
 
-            // Envoi de la taille du mess
-            send(dSC2, &sizeMess, 4, 0);
+            // Envoi à tous les clients
+            for (int i = 0; i < NB_THREADS; i++)
+            {
+                if (i != indexSenderAdress && socketClients[i] != -1)
+                {
+                    // Envoi de la taille du message
+                    send(socketClients[i], &sizeMess, 4, 0);
 
-            // Envoie message
-            send(dSC2, msg, sizeMess, 0);
-            printf("Message Envoyé\n");
+                    // Envoi du message
+                    send(socketClients[i], msg, sizeMess, 0);
+                    printf("Message Envoyé\n");
+                }
+            }
         }
         else
         {
             printf("Fin de la connexion\n");
             stop = 1;
-            pthread_exit(0);
-        }
-    }
-}
 
-void *sendToClient1()
-{
-    while (stop == 0)
-    {
-        // Reception taille du mess
-        recv(dSC2, &sizeMess, sizeof(sizeMess), 0);
-        printf("Message 2 recu de taille : %d\n", sizeMess);
-        // Reception du mess
-        recv(dSC2, msg, sizeMess, 0);
+            indexsocketClients--;             // on décrémente le nombre de clients connectés
+            socketClients[indexSenderAdress] = -1; // on met la place du client à -1 pour liberer la place
 
-        if (strcmp(msg, "fin") != 0)
-        {
-            printf("Message reçu : %s\n", msg);
-
-            // Envoi de la taille du mess
-            send(dSC, &sizeMess, 4, 0);
-
-            // Envoie message
-            send(dSC, msg, sizeMess, 0);
-            printf("Message Envoyé\n");
-        }
-        else
-        {
-            printf("Fin de la connexion\n");
-            stop = 1;
             pthread_exit(0);
         }
     }
@@ -76,8 +63,11 @@ int main(int argc, char *argv[])
 {
 
     printf("Début programme\n");
-
-    int dS = socket(PF_INET, SOCK_STREAM, 0);
+    struct sockaddr_in aC;
+    pthread_t thread[NB_THREADS];
+    socklen_t lg = sizeof(aC);
+    ;
+    dS = socket(PF_INET, SOCK_STREAM, 0);
     printf("Socket Créé\n");
 
     struct sockaddr_in ad;
@@ -89,28 +79,48 @@ int main(int argc, char *argv[])
 
     listen(dS, 7);
     printf("Mode écoute\n");
+    int trouve = 0; // variable pour savoir si on a trouvé une place vide dans le tableau
+    int indexFoundsclients = 0;
+    int newClient;
+
+    for (int i = 0; i < NB_THREADS; i++)
+        socketClients[i] = -1;
 
     while (1)
     {
-        pthread_t thread[NB_THREADS];
+        // si il y a de la place alors on attend un client
+        if (indexsocketClients < NB_THREADS)
+        {
+            // struct sockaddr_in aC[indexAC];
+            // boucle pour trouver une place vide dans le tableau
 
-        struct sockaddr_in aC;
-        struct sockaddr_in aC2;
-        socklen_t lg = sizeof(struct sockaddr_in);
-        socklen_t lg2 = sizeof(struct sockaddr_in);
-        dSC = accept(dS, (struct sockaddr *)&aC, &lg);
-        printf("Client Connecté\n");
-        dSC2 = accept(dS, (struct sockaddr *)&aC2, &lg2);
-        printf("Client 2 Connecté\n");
-
-        pthread_create(&thread[0], NULL, sendToClient1, (void *)0);
-        pthread_create(&thread[1], NULL, sendToClient2, (void *)1);
-
-        pthread_join(thread[0], NULL);
-        pthread_join(thread[1], NULL);
-
-        shutdown(dSC, 2);
-        shutdown(dSC2, 2);
-        printf("Fin du programme\n");
+            indexsocketClients++; // on incrémente le nombre de clients connectés
+            newClient = accept(dS, (struct sockaddr *)&aC, &lg);
+            if (newClient == -1)
+            {
+                printf("Error accepting socket client");
+            }
+            else
+            {
+                trouve = 0;
+                indexFoundsclients = 0;
+                while (!trouve)
+                {
+                    printf("%d\n", socketClients[indexFoundsclients]);
+                    if (socketClients[indexFoundsclients] == -1)
+                    {
+                        trouve = 1;
+                    }
+                    else
+                    {
+                        indexFoundsclients++;
+                    }
+                }
+                socketClients[indexFoundsclients] = newClient;
+            }
+            printf("Client Connecté%d\n", indexFoundsclients);
+            pthread_create(&thread[indexFoundsclients], NULL, sendToClients, (void *)indexFoundsclients);
+        }
     }
+    printf("Fin du programme\n");
 }
