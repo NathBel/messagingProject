@@ -28,20 +28,14 @@ void *sending()
       printf("Erreur d'envoi\n");
       exit(1);
     }
-    else
-    {
-      printf("Taille du message : %d\n", sizeMess);
-    }
+
     // Envoi du mess
     if (send(dS, msg, sizeMess, 0) == -1)
     {
       printf("Erreur d'envoi\n");
       exit(1);
     }
-    else
-    {
-      printf("Message Envoyé \n");
-    }
+
 
     if (strcmp(msg, "fin") == 0)
     {
@@ -61,10 +55,7 @@ void *receiving()
       printf("Erreur de reception\n");
       exit(1);
     }
-    else
-    {
-      printf("Message 2 recu de taille : %d\n", sizeMess);
-    }
+
 
     if (recv(dS, msg, sizeMess, 0) == -1)
     {
@@ -73,8 +64,10 @@ void *receiving()
     }
     else
     {
-      printf("Message reçu : %s\n", msg);
-
+      //Affiche les messages reçus en bleu
+      printf("\033[0;34m\t \t \t %s\033[0m\n", msg);
+      printf("Entrez un message ('fin' pour quitter) : ");
+      fflush(stdout);
     }
   }
   pthread_exit(0);

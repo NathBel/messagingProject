@@ -12,7 +12,7 @@ int dS;
 // Taille max du message 20
 char msg[20];
 int sizeMess;
-volatile int stop = 0;
+int stop = 0;
 // Tableau de socket pour les clients
 int socketClients[NB_THREADS];
 int indexsocketClients = 0;
@@ -23,10 +23,10 @@ void *sendToClients(void *t)
     while (stop == 0)
     {
         // Reception taille du mess
-        recv(socketClients[indexSenderAdress], &sizeMess, sizeof(sizeMess), 0); // att la taille du message de son client
-        printf("Message 2 recu de taille : %d\n", sizeMess);
+        recv(socketClients[indexSenderAdress], &sizeMess, sizeof(sizeMess), 0); 
+        printf("Message recu de taille : %d\n", sizeMess);
         // Reception du mess
-        recv(socketClients[indexSenderAdress], msg, sizeMess, 0); // att le message de son client
+        recv(socketClients[indexSenderAdress], msg, sizeMess, 0);
 
         if (strcmp(msg, "fin") != 0)
         {
@@ -50,10 +50,10 @@ void *sendToClients(void *t)
         {
             printf("Fin de la connexion\n");
             stop = 1;
-
-            indexsocketClients--;             // on décrémente le nombre de clients connectés
-            socketClients[indexSenderAdress] = -1; // on met la place du client à -1 pour liberer la place
-
+            // décrémente le nombre de clients connectés
+            indexsocketClients--;
+            // -1 dans le tableau = place libre
+            socketClients[indexSenderAdress] = -1; 
             pthread_exit(0);
         }
     }
@@ -106,7 +106,6 @@ int main(int argc, char *argv[])
                 indexFoundsclients = 0;
                 while (!trouve)
                 {
-                    printf("%d\n", socketClients[indexFoundsclients]);
                     if (socketClients[indexFoundsclients] == -1)
                     {
                         trouve = 1;
@@ -118,8 +117,9 @@ int main(int argc, char *argv[])
                 }
                 socketClients[indexFoundsclients] = newClient;
             }
-            printf("Client Connecté%d\n", indexFoundsclients);
+            printf("Nouveau client Connecté\n");
             pthread_create(&thread[indexFoundsclients], NULL, sendToClients, (void *)indexFoundsclients);
+
         }
     }
     printf("Fin du programme\n");
