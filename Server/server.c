@@ -7,6 +7,8 @@
 #include <semaphore.h>
 // Nombre de threads crées => nombre clients max
 #define NB_THREADS 10
+#include <arpa/inet.h>
+#define FILE_SIZE 1024
 
 struct client
 {
@@ -32,6 +34,25 @@ sem_t sem;
 int threadToClean[10] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1}; // Tableau des threads à nettoyer
 // Declare the mutex
 pthread_mutex_t mutex;
+
+void write_file(int sockfd){
+  int n;
+  FILE *fp;
+  char *filename = "recv.txt";
+  char buffer[FILE_SIZE];
+ 
+  fp = fopen(filename, "w");
+  while (1) {
+    n = recv(sockfd, buffer, FILE_SIZE, 0);
+    if (n <= 0){
+      break;
+      return;
+    }
+    fprintf(fp, "%s", buffer);
+    bzero(buffer, FILE_SIZE);
+  }
+  return;
+}
 
 void endConnection(int indexSenderAdress)
 {
@@ -320,6 +341,11 @@ void getCommand(char *msg, int indexSenderAdress)
         // Envoi du message
         res = send(clientsConnected[indexSenderAdress].socket, messageToSend, sizeMessageToSend, 0);
         checkError(res, indexSenderAdress);
+    }
+    else if(strcmp(cmd, "/sendfile") == 0){
+        tok = strtok(NULL, "\0");
+        char *file = tok;
+
     }
     else
     {
