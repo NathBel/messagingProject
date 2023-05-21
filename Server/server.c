@@ -307,6 +307,104 @@ char *getManuel()
     return (file_content);
 }
 
+void receiveFile(){
+
+    char *ip = "127.0.0.1";
+    int port = 8080;
+    int e;
+    
+    int sockfd, new_sock;
+    struct sockaddr_in server_addr, new_addr;
+    socklen_t addr_size;
+    char buffer[200];
+    
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if(sockfd < 0) {
+        perror("[-]Error in socket");
+        exit(1);
+    }
+    printf("[+]Server socket created successfully.\n");
+    
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = port;
+    server_addr.sin_addr.s_addr = inet_addr(ip);
+    
+    e = bind(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr));
+    if(e < 0) {
+        perror("[-]Error in bind");
+        exit(1);
+    }
+    printf("[+]Binding successfull.\n");
+    
+    if(listen(sockfd, 10) == 0){
+    printf("[+]Listening....\n");
+    }else{
+    perror("[-]Error in listening");
+        exit(1);
+    }
+    
+    addr_size = sizeof(new_addr);
+    new_sock = accept(sockfd, (struct sockaddr*)&new_addr, &addr_size);
+ 
+    // Reception taille du nom du fichier
+    int res = recv(new_sock, &sizeMess, sizeof(sizeMess), 0);
+    checkError(res, indexSenderAdress);
+    printf("Nom du fichier recu de taille : %d\n", sizeMess);
+
+    // Reception du nom du fichier
+    char filename[sizeMess];
+    res = recv(new_sock, filename, sizeMess, 0);
+    checkError(res, indexSenderAdress);
+    printf("Nom du fichier reçu : %s\n", filename);
+
+    // Reception taille de la taille du fichier
+    int sizeSizefile;
+    res = recv(new_sock, &sizeSizefile, sizeof(sizeSizefile), 0);
+    checkError(res, new_sock);
+    printf("Taille de la taille du fichier : %d\n", sizeSizefile);
+
+    // Reception taille du fichier
+    int sizefile;
+    res = recv(new_sock, &sizefile, sizeSizefile, 0);
+    checkError(res, new_sock);
+    printf("Taille du fichier : %d\n", sizefile);
+
+    int n;
+    FILE *fp;
+    
+    char result[100]; // Allocate enough memory to hold the concatenated string
+
+    strcpy(result, "/home/nathan/FAR-MessagingProject/Server/FileReceived/"); // Copy the folderPath
+    strcat(result, filename); // Concatenate the filename
+
+    fp = fopen(result, "w");
+    if (fp == NULL) {
+        perror("Error in reading file.");
+        exit(1);
+    }
+    printf("Fichier ouvert : %s\n", result);
+
+    while (1) {
+        n = recv(new_sock, buffer, 200, 0);
+        if (n <= 0) {
+            if (n == 0) {
+                printf("Connection closed by client.\n");
+            } else {
+                perror("[-]Error in receiving file.");
+            }
+            break;
+        }
+        printf("Fichier recu : %s\n", buffer);
+        int res = fprintf(fp, "%s", buffer);
+        if (res < 0) {
+            perror("[-]Error in writing file.");
+        }
+        bzero(buffer, 200);
+    }
+    printf("[+]File received successfully.\n");
+    fclose(fp);
+}
+
 void getCommand(char *msg, int indexSenderAdress)
 {
     char *tok = strtok(msg, " ");
@@ -343,9 +441,8 @@ void getCommand(char *msg, int indexSenderAdress)
         checkError(res, indexSenderAdress);
     }
     else if(strcmp(cmd, "/sendfile") == 0){
-        tok = strtok(NULL, "\0");
-        char *file = tok;
-
+        printf("Commande sendfile\n");
+        receiveFile(indexSenderAdress);
     }
     else
     {
@@ -385,13 +482,15 @@ void *sendToClients(void *t)
         // Reception taille du mess
         int res = recv(clientsConnected[indexSenderAdress].socket, &sizeMess, sizeof(sizeMess), 0);
 
-        checkError(res, indexSenderAdress);
+
 
         printf("Message recu de taille : %d\n", sizeMess);
         // Reception du mess
         res = recv(clientsConnected[indexSenderAdress].socket, msg, sizeMess, 0);
 
         checkError(res, indexSenderAdress);
+
+        printf("Message reçu : %s\n", msg);
 
         if (checkIfCommand(msg) == 0)
         {

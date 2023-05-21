@@ -6,6 +6,8 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <dirent.h>
+
 
 
 #define NB_THREADS 2
@@ -14,17 +16,21 @@
 
 char *msg = NULL;
 char *msg2 = NULL;
-char* filename = NULL;
+char filename[BUFFER_SIZE];
 int n;
 int sizeMess;
 int dS;
+
+// Define a struct to hold the parameters
+struct SendingParams {
+    char *ip;
+    char *port;
+};
 
 void send_file(FILE *fp, int sockfd){
   int n;
   char data[FILE_SIZE] = {0};
  
-
-
   while(fgets(data, FILE_SIZE, fp) != NULL) {
     if (send(sockfd, data, sizeof(data), 0) == -1) {
       perror("Error in sending file.");
@@ -61,7 +67,7 @@ void formattingMessage(char *msg)
   }
 }
 
-void *sending()
+void *sending(void *arg)
 {
   while (1)
   {
@@ -70,12 +76,82 @@ void *sending()
       msg[strlen(msg) - 1] = '\0';
 
     if(strncmp(msg,"/sendfile", strlen("/sendfile")) == 0){
-      printf("Quelle fichier souhaitez vous envoyer ?");
-      fgets(filename, BUFFER_SIZE, stdin);
+      // Cast the argument to the appropriate struct type
+      struct SendingParams *params = (struct SendingParams *)arg;
 
-      //TO DO : Vérifier que le fichier existe //////// !!!!!!!!!!
+
+      char *folderPath = "/home/nathan/FAR-MessagingProject/Client/FileToSend";
+      DIR *dir;
+      struct dirent *entry;
+
+      printf("Quelle fichier souhaitez vous envoyer ?\n");
+
+      dir = opendir(folderPath);
+      if (dir == NULL) {
+          perror("Failed to open the folder.\n");
+      }
+
+      while ((entry = readdir(dir)) != NULL) {
+          if (entry->d_type == DT_REG) {  // Only display regular files, excluding directories
+              printf("%s\n", entry->d_name);
+          }
+      }
+
+      // Reset the position of the directory stream pointer
+      rewinddir(dir);
+
+      //Récupération du nom du fichier à envoyer
+      fgets(filename, BUFFER_SIZE, stdin);
+      filename[strcspn(filename, "\n")] = '\0';  // Remove the newline character
+
+      int find = 0;
+
+      //Vérification que le fichier existe
+      while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_type == DT_REG) {  // Only display regular files, excluding directories
+            if (strcmp(entry->d_name, filename) == 0) {
+                find = 1;
+                break;
+            }
+        }
+      }
+
+      if (find == 0) {
+          printf("Le fichier n'existe pas\n");
+          exit(1);
+      }   
+
+      char *messSendFile = "/sendfile";
+      int sizeMessSendFile = strlen(messSendFile) + 1;
+
+      //Envoi la taille de la commande
+      if (send(dS, &sizeMessSendFile, 4, 0) == -1)
+      {
+        printf("Erreur d'envoi\n");
+        exit(1);
+      }
+
+      //Envoi de la commande
+      int res = send(dS, messSendFile, sizeMessSendFile, 0);
+      if(res == -1)
+      {
+        perror("Erreur d'envoi");
+        exit(1);
+      }
+      else if (res == 0)
+      {
+        perror("Fin de la connexion");
+        pthread_exit(0);
+      }
+
+      sleep(1);
+
+      char *ip = "127.0.0.1";
+      int port = 8080;
+      int e;
 
       int sockfd;
+      struct sockaddr_in server_addr;
       //Création d'une nouvelle socket pour l'envoi du fichier
       sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -84,9 +160,20 @@ void *sending()
         exit(1);
       }
 
+      server_addr.sin_family = AF_INET;
+      server_addr.sin_port = port;
+      server_addr.sin_addr.s_addr = inet_addr(ip);
+
+      e = connect(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr));
+      if(e == -1) {
+        perror("[-]Error in socket");
+        exit(1);
+      }
+      printf("[+]Connected to Server.\n");
+
       //Envoi la taille du nom du fichier
-      // JE DOIS ENVOYER UN TRUC SPECIAL POUR QUE LE SERV SACHE QUE C'EST UN FICHIER
       int sizeFilename = strlen(filename) + 1;
+      
       if (send(sockfd, &sizeFilename, 4, 0) == -1)
       {
         printf("Erreur d'envoi\n");
@@ -94,8 +181,7 @@ void *sending()
       }
 
       //Envoi du nom du fichier
-      int res = send(sockfd, filename, sizeFilename, 0);
-      if (res == -1)
+      if(send(sockfd, filename, sizeFilename, 0) == -1)
       {
         perror("Erreur d'envoi");
         exit(1);
@@ -106,17 +192,27 @@ void *sending()
         pthread_exit(0);
       }
 
-      FILE *fp = fopen(filename, "r");
+      char result[100]; // Allocate enough memory to hold the concatenated string
+
+      strcpy(result, folderPath); // Copy the folderPath
+      strcat(result, "/"); // Concatenate a / character
+      strcat(result, filename); // Concatenate the filename
+
+      printf("[+]Sending file : %s\n", result);
+
+      FILE *fp = fopen(result, "r");
       if (fp == NULL) {
         perror("Error in reading file.");
         exit(1);
       }
 
+      printf("[+]File opened successfully.\n");
+
       //Envoi de la taille du fichier
-      //+1 ou pas ???????????????????
       long sizeFile = getFileSize(fp) +1;
       int sizeSizeFile = sizeof(sizeFile);
 
+      //Envoi de la taille de la taille du fichier
       if (send(sockfd, &sizeSizeFile, 4, 0) == -1)
       {
         printf("Erreur d'envoi\n");
@@ -124,25 +220,28 @@ void *sending()
       }
 
       //Envoi de la taille du fichier
-      res = send(sockfd, &sizeFile, 8, 0);
-      if (res == -1)
+      if (send(sockfd, &sizeFile, sizeSizeFile, 0) == -1)
       {
-        perror("Erreur d'envoi");
+        printf("Erreur d'envoi\n");
         exit(1);
       }
-      else if (res == 0)
-      {
-        perror("Fin de la connexion");
-        pthread_exit(0);
-      }
 
-      //Envoie du ficher
-      send_file(fp, sockfd);
+      char data[200] = {0};
+
+      while(fgets(data, 200, fp) != NULL) {
+        printf("%s", data);
+        if (send(sockfd, data, strlen(data), 0) == -1) {
+          perror("[-]Error in sending file.");
+          exit(1);
+        }
+        bzero(data, sizeFile);
+      }
 
       //Fermeture de la socket
       close(sockfd);
     }
-
+   
+  }
     
     // Envoi de la taille du mess
     int sizeMess = strlen(msg) + 1;
@@ -172,7 +271,6 @@ void *sending()
       pthread_exit(0);
     }
   }
-}
 
 void *receiving()
 {
@@ -218,6 +316,11 @@ int main(int argc, char *argv[])
     exit(1);
   }
 
+  // Create a struct instance and populate the parameters
+  struct SendingParams params;
+  params.ip = argv[1];
+  params.port = argv[2];
+
   printf("Début programme\n");
   dS = socket(PF_INET, SOCK_STREAM, 0);
   printf("Socket Créé\n");
@@ -259,7 +362,7 @@ int main(int argc, char *argv[])
     exit(1);
   }
 
-  pthread_create(&thread[0], NULL, sending, (void *)0);
+  pthread_create(&thread[0], NULL, sending, (void *)&params);
   pthread_create(&thread[1], NULL, receiving, (void *)1);
   // fermeture des threads
   pthread_join(thread[0], NULL);

@@ -1,4 +1,5 @@
 Voici la liste des commandes disponibles :
 /mp <username> <message> : envoyer un message privé à un utilisateur
+/sendfile : envoyer un fichier à tous les utilisateurs connectés
 /fin : quitter le chat
 /manuel : afficher la liste des commandes disponibles
