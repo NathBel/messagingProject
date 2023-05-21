@@ -12,7 +12,7 @@ To compile the project, open a terminal and run the following commands:
 This will compile the server and client executables, which can be run using the following commands:
 
 (`./server PORT`)
-(`./client IP PORT`)
+(`./client IP PORT USERNAME`)
 
 ## Usage
 
