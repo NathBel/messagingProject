@@ -20,6 +20,7 @@ struct client
 {
     char *username;
     int socket;
+    
 };
 
 // Socket du serveur
@@ -213,13 +214,21 @@ char *setUsername(int indexSenderAdress)
             clientsConnected[indexSenderAdress].username = malloc(sizeMess * sizeof(char));
             strcpy(clientsConnected[indexSenderAdress].username, input_username);
 
-            char *successMessage = "Server: Bienvenue sur notre messagerie !\n";
+            char *successMessage = malloc(1024 * sizeof(char));
+            if(strcmp(input_username, "ThomasGodel") == 0){
+                strcpy(successMessage, "Server: Le chef est là !\n");
+            }
+            else {
+               strcat(successMessage, "Server: Bienvenue sur notre messagerie !\n");
+            }
             int sizeSucessError = strlen(successMessage) + 1;
             res = send(clientsConnected[indexSenderAdress].socket, &sizeSucessError, 4, 0);
             checkError(res, indexSenderAdress);
 
             res = send(clientsConnected[indexSenderAdress].socket, successMessage, sizeSucessError, 0);
             checkError(res, indexSenderAdress);
+
+            free(successMessage);
             break;
         }
         else
@@ -399,7 +408,7 @@ void receiveFile()
 
     char result[100]; // Allocate enough memory to hold the concatenated string
 
-    strcpy(result, "/home/nathan/FAR-MessagingProject/Server/FileReceived/"); // Copy the folderPath
+    strcpy(result, "/home/nathan/FAR-MessagingProject/Server/File/"); // Copy the folderPath
     strcat(result, filename);                                                 // Concatenate the filename
 
     fp = fopen(result, "wb");
@@ -453,14 +462,14 @@ void sendFile(int indexSenderAdress)
     checkError(res, indexSenderAdress);
 
     // Recuperation des fichiers dans le dossier FileToSend
-    char *folderPath = "/home/nathan/FAR-MessagingProject/Server/FileReceived/";
+    char *folderPath = "/home/nathan/FAR-MessagingProject/Server/File/";
 
     // Open folder
     DIR *folder = opendir(folderPath);
     if (folder == NULL)
     {
         perror("Unable to read directory");
-        exit(1);
+        return;
     }
 
     // Read directory
@@ -620,6 +629,105 @@ void sendFile(int indexSenderAdress)
     close(sockfd);
 }
 
+//Function that send all clients connected
+void getUser(int indexSenderAdress){
+    char *messageToSend = "Server: Liste des utilisateurs connectés : \n";
+    int sizeMessageToSend = strlen(messageToSend) + 1;
+
+    // Envoi de la taille du message
+    int res = send(clientsConnected[indexSenderAdress].socket, &sizeMessageToSend, 4, 0);
+    checkError(res, indexSenderAdress);
+
+    // Envoi du message
+    res = send(clientsConnected[indexSenderAdress].socket, messageToSend, sizeMessageToSend, 0);
+    checkError(res, indexSenderAdress);
+
+    for (int i = 0; i < NB_THREADS; i++)
+    {
+        if (clientsConnected[i].socket != -1)
+        {
+            char *messageToSend = malloc(1024 * sizeof(char));
+            strcpy(messageToSend, "Server: ");
+            strcat(messageToSend, clientsConnected[i].username);
+            if(i == indexSenderAdress){
+                strcat(messageToSend, "\x1b[3m (vous)\x1b[0m");
+            }
+            int sizeMessageToSend = strlen(messageToSend) + 1;
+
+            // Envoi de la taille du message
+            int res = send(clientsConnected[indexSenderAdress].socket, &sizeMessageToSend, sizeof(sizeMessageToSend), 0);
+            checkError(res, indexSenderAdress);
+
+            // Envoi du message
+            res = send(clientsConnected[indexSenderAdress].socket, messageToSend, sizeMessageToSend, 0);
+            checkError(res, indexSenderAdress);
+
+            free(messageToSend);
+        }
+    }
+}
+
+//Function to kick a client
+void kick(char *user, int indexSenderAdress){
+    //Check if the user is connected
+    int find = findClient(user);
+
+    if(find != 1){
+        printf("Utilisateur non trouvé\n");
+        char *messageToSend = "Server: Utilisateur non trouvé";
+        int sizeMessageToSend = strlen(messageToSend) + 1;
+
+        // Envoi de la taille du message
+        int res = send(clientsConnected[indexSenderAdress].socket, &sizeMessageToSend, 4, 0);
+        checkError(res, indexSenderAdress);
+
+        // Envoi du message
+        res = send(clientsConnected[indexSenderAdress].socket, messageToSend, sizeMessageToSend, 0);
+        checkError(res, indexSenderAdress);
+        return;
+    } else {
+        //Find the index of the user
+        int i = 0;
+        int findUser = 0;
+        while (i < indexsocketClients && findUser == 0)
+        {
+            if (strcmp(clientsConnected[i].username, user) == 0)
+            {
+                printf("Utilisateur trouvé : %d & %s\n", i, clientsConnected[i].username);
+                endConnection(i);
+                findUser = 1;
+            }
+            i++;
+        }
+    }
+}
+
+void rainbow(int indexSenderAdress){
+    //Affiche un / de chaque couleur
+    char *rainbow = malloc(1024 * sizeof(char));
+    strcpy(rainbow, "\x1b[40m /\x1b[0m");
+    strcat(rainbow, "\x1b[41m /\x1b[0m");
+    strcat(rainbow, "\x1b[42m /\x1b[0m");
+    strcat(rainbow, "\x1b[43m /\x1b[0m");
+    strcat(rainbow, "\x1b[44m /\x1b[0m");
+    strcat(rainbow, "\x1b[45m /\x1b[0m");
+    strcat(rainbow, "\x1b[46m /\x1b[0m");
+    strcat(rainbow, "\x1b[47m /\x1b[0m");
+    strcat(rainbow, "\x1b[100m /\x1b[0m");
+
+    int sizeMessageToSend = strlen(rainbow) + 1;
+
+    // Envoi de la taille du message
+    int res = send(clientsConnected[indexSenderAdress].socket, &sizeMessageToSend, sizeof(sizeMessageToSend), 0);
+    checkError(res, indexSenderAdress);
+
+    // Envoi du message
+    res = send(clientsConnected[indexSenderAdress].socket, rainbow, sizeMessageToSend, 0);
+    checkError(res, indexSenderAdress);
+
+    free(rainbow);
+}
+
 void getCommand(char *msg, int indexSenderAdress)
 {
     char *tok = strtok(msg, " ");
@@ -665,6 +773,22 @@ void getCommand(char *msg, int indexSenderAdress)
         printf("Commande download\n");
         sendFile(indexSenderAdress);
     }
+    else if (strcmp(cmd, "/list") == 0)
+    {
+        printf("Commande list\n");
+        getUser(indexSenderAdress);
+    }
+    else if (strcmp(cmd, "/kick") == 0)
+    {
+        tok = strtok(NULL, "\0");
+        char *user = tok;
+        printf("Commande kick %s\n", user);
+        kick(user, indexSenderAdress);
+    }
+    else if(strcmp(cmd, "/rainbow") == 0){
+        printf("Commande rainbow \n");
+        rainbow(indexSenderAdress);
+    }
     else
     {
         printf("Commande non reconnue\n");
@@ -706,10 +830,9 @@ void *sendToClients(void *t)
         printf("Message recu de taille : %d\n", sizeMess);
         // Reception du mess
         res = recv(clientsConnected[indexSenderAdress].socket, msg, sizeMess, 0);
+        printf("Message recu : %s\n", msg);
 
         checkError(res, indexSenderAdress);
-
-        printf("Message reçu : %s\n", msg);
 
         if (checkIfCommand(msg) == 0)
         {

@@ -64,6 +64,17 @@ void formattingMessage(char *msg)
   }
   else
   {
+    char *badWords[12] = {"merde", "con", "pute", "connasse", "connard", "salope", "enculé", "encule", "enculer", "pd", "pédé", "Thomas Godel n'est pas le chef"};
+    //Check if msg contains bad words
+    for (int i = 0; i < 12; i++)
+    {
+      if (strstr(msg, badWords[i]) != NULL)
+      {
+        printf("\x1b[31m%s\x1b[0m\n", "Message censuré\n");
+        return;
+      }
+    }
+
     printf("\x1b[34m \t \t \t %s\x1b[0m\n", msg);
   }
 }
@@ -128,7 +139,7 @@ void receiveFile()
 
   char result[100]; // Allocate enough memory to hold the concatenated string
 
-  strcpy(result, "/home/nathan/FAR-MessagingProject/Client/FileToSend/"); // Copy the folderPath
+  strcpy(result, "/home/nathan/FAR-MessagingProject/Client/File/"); // Copy the folderPath
   strcat(result, filename);                                               // Concatenate the filename
 
   fp = fopen(result, "wb");
@@ -169,7 +180,7 @@ void receiveFile()
 
 void sendfile()
 {
-  char *folderPath = "/home/nathan/FAR-MessagingProject/Client/FileToSend";
+  char *folderPath = "/home/nathan/FAR-MessagingProject/Client/File";
   DIR *dir;
   struct dirent *entry;
 
@@ -199,41 +210,41 @@ void sendfile()
   // Reset the position of the directory stream pointer
   rewinddir(dir);
 
-  // Récupération du nom du fichier à envoyer
-  fgets(filenumber, BUFFER_SIZE, stdin);
-  filenumber[strcspn(filenumber, "\n")] = '\0'; // Remove the newline character
+    // Récupération du nom du fichier à envoyer
+    fgets(filenumber, BUFFER_SIZE, stdin);
+    filenumber[strcspn(filenumber, "\n")] = '\0'; // Remove the newline character
 
-  int index = atoi(filenumber) - 1;
+    int index = atoi(filenumber) - 1;
 
-  char *filename = strdup(files[index].d_name);
-  if (filename == NULL)
-  {
-    printf("Failed to allocate memory\n");
-    // Handle memory allocation failure here
-  }
+    char *filename = strdup(files[index].d_name);
+    if (filename == NULL)
+    {
+      printf("Failed to allocate memory\n");
+      // Handle memory allocation failure here
+    }
 
-  free(filenumber);
+    free(filenumber);
 
-  int find = 0;
+    int find = 0;
 
-  // Vérification que le fichier existe
-  while ((entry = readdir(dir)) != NULL)
-  {
-    if (entry->d_type == DT_REG)
-    { // Only display regular files, excluding directories
-      if (strcmp(entry->d_name, filename) == 0)
-      {
-        find = 1;
-        break;
+    // Vérification que le fichier existe
+    while ((entry = readdir(dir)) != NULL)
+    {
+      if (entry->d_type == DT_REG)
+      { // Only display regular files, excluding directories
+        if (strcmp(entry->d_name, filename) == 0)
+        {
+          find = 1;
+          break;
+        }
       }
     }
-  }
 
-  if (find == 0)
-  {
-    printf("Le fichier n'existe pas\n");
-    exit(1);
-  }
+    if (find == 0)
+    {
+      printf("Le fichier n'existe pas\n");
+      return;
+    }
 
   char *messSendFile = "/sendfile";
   int sizeMessSendFile = strlen(messSendFile) + 1;
@@ -313,7 +324,7 @@ void sendfile()
   strcat(result, "/");        // Concatenate a / character
   strcat(result, filename);   // Concatenate the filename
 
-  printf("\x1b[31m Envoie du fichier \x1b[0m\n");
+  printf("\x1b[31m Envoi du fichier \x1b[0m\n");
 
   FILE *fp = fopen(result, "rb");
   if (fp == NULL)
@@ -365,7 +376,7 @@ void sendfile()
     bzero(data, 200);
   }
 
-  free(data); // Free the allocated memory
+  free(data); // Desallocated memory
   fclose(fp); // Close the file
 
   // Fermeture de la socket
@@ -500,6 +511,12 @@ void *receiving()
           }
 
           printf("\x1b[31m %d. %s\x1b[0m\n", i + 1, filenames[i]);
+        }
+
+        // Désallocation mémoire de filenames
+        for (int i = 0; i < nbFiles; i++)
+        {
+          free(filenames[i]);
         }
 
         receiveFile();

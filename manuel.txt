@@ -2,5 +2,7 @@ Voici la liste des commandes disponibles :
 /mp <username> <message> : envoyer un message privé à un utilisateur
 /sendfile : envoyer un fichier au serveur
 /download : télécharger un fichier du serveur
+/list : afficher la liste des utilisateurs connectés
+/rainbow : affiche un arc-en-ciel de couleurs
 /fin : quitter le chat
 /manuel : afficher la liste des commandes disponibles
