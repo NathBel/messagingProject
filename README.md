@@ -22,4 +22,3 @@ The client interface is designed to be user-friendly and intuitive, with options
 
 ## Licence
 Project do in Polytech Montpellier by [THIRION Margaux](https://github.com/MargauxThirion), [COULON Thomas](https://github.com/thomasc21) and [BELLUS Nathan](https://github.com/NathBel)
-
